@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>2026 全球签证通过率深度测评系统</title>
+    <style>
+        :root {
+            --primary: #1a73e8;
+            --accent: #f39c12;
+            --danger: #d93025;
+            --success: #1e8e3e;
+            --bg: #f5f7fa;
+        }
+        body { font-family: 'PingFang SC', sans-serif; background: var(--bg); margin: 0; padding: 10px; display: flex; justify-content: center; }
+        .app-container { width: 100%; max-width: 480px; background: #fff; border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.1); overflow: hidden; min-height: 600px; display: flex; flex-direction: column; }
+        
+        /* 顶部进度 */
+        .header { background: var(--primary); color: white; padding: 20px; text-align: center; }
+        .progress-box { height: 8px; background: rgba(255,255,255,0.2); position: relative; }
+        #p-bar { height: 100%; background: var(--accent); width: 0%; transition: width 0.3s; }
+        .step-indicator { font-size: 0.8rem; margin-top: 10px; opacity: 0.9; }
+
+        .content { padding: 25px; flex-grow: 1; display: flex; flex-direction: column; }
+        .hidden { display: none !important; }
+
+        /* 题目样式 */
+        .q-category { font-size: 0.75rem; color: var(--primary); font-weight: bold; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 5px; }
+        .q-title { font-size: 1.15rem; font-weight: 600; color: #333; line-height: 1.4; margin-bottom: 20px; }
+        
+        .option-btn { 
+            display: block; width: 100%; padding: 16px; margin-bottom: 12px; 
+            border: 1.5px solid #eee; border-radius: 12px; background: #fff;
+            text-align: left; font-size: 1rem; cursor: pointer; transition: all 0.2s;
+        }
+        .option-btn:hover { border-color: var(--primary); background: #f8faff; color: var(--primary); }
+
+        /* 结果页 */
+        .score-circle { width: 150px; height: 150px; border-radius: 50%; border: 10px solid; margin: 20px auto; display: flex; flex-direction: column; justify-content: center; align-items: center; }
+        .score-val { font-size: 2.8rem; font-weight: bold; }
+        .advice-card { background: #fff9f0; border: 1px solid #ffeeba; padding: 15px; border-radius: 12px; font-size: 0.95rem; line-height: 1.6; color: #856404; margin-bottom: 25px; }
+        
+        /* 按钮 */
+        .cta-insurance { 
+            background: linear-gradient(135deg, #f39c12, #e67e22); color: white; 
+            text-align: center; text-decoration: none; padding: 18px; border-radius: 12px;
+            font-weight: bold; display: block; box-shadow: 0 4px 15px rgba(230,126,34,0.3);
+            animation: pulse 2s infinite; margin-bottom: 20px;
+        }
+
+        .qr-section { background: #f9f9f9; border-radius: 15px; padding: 20px; text-align: center; border: 1px dashed #ddd; }
+        .qr-section img { width: 200px; height: 200px; margin-bottom: 10px; border-radius: 10px; }
+        .qr-tag { color: var(--danger); font-weight: bold; font-size: 0.9rem; margin-bottom: 5px; }
+
+        @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.03); } 100% { transform: scale(1); } }
+        
+        /* 加载 */
+        .loading-wrap { text-align: center; padding-top: 50px; }
+        .loader { border: 4px solid #f3f3f3; border-top: 4px solid var(--primary); border-radius: 50%; width: 50px; height: 50px; animation: spin 1s linear infinite; margin: 0 auto 20px; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    </style>
+</head>
+<body>
+
+<div class="app-container">
+    <div class="header">
+        <div id="title-text">签证过签率大数据评估</div>
+        <div class="step-indicator" id="step-info">准备开始</div>
+    </div>
+    <div class="progress-box"><div id="p-bar"></div></div>
+
+    <div id="main-content" class="content">
+        </div>
+</div>
+
+<script>
+    let currentScore = 50;
+    let currentStep = 0;
+    let selectedCountry = "";
+
+    const questions = [
+        { cat: "意向目标", q: "1. 您计划申请哪个国家的签证？", opts: [{t:"美国", s:-10}, {t:"加拿大", s:-8}, {t:"英国", s:-5}, {t:"澳洲/新西兰", s:-5}, {t:"申根国家", s:-5}, {t:"其他国家", s:5}] },
+        { cat: "出境记录", q: "2. 您是否去过美、加、英、法、德、日等发达国家？", opts: [{t:"去过 2 个及以上", s:25}, {t:"只去过 1 个", s:15}, {t:"仅去过东南亚等免签国", s:5}, {t:"从未出国(白本)", s:0}] },
+        { cat: "信用历史", q: "3. 您是否曾被任何国家拒签过？", opts: [{t:"从未拒签", s:5}, {t:"3年以前被拒签过", s:-5}, {t:"近3年内有拒签记录", s:-25}] },
+        { cat: "就业情况", q: "4. 您目前的就业单位性质是？", opts: [{t:"政府机构/事业单位/国企", s:15}, {t:"大型上市公司/知名外企", s:12}, {t:"普通私企", s:5}, {t:"自由职业/学生", s:2}, {t:"暂无固定职业", s:-10}] },
+        { cat: "职位等级", q: "5. 您在目前的单位担任什么职位？", opts: [{t:"中高层管理人员", s:8}, {t:"普通技术/行政职员", s:5}, {t:"蓝领/一线工人", s:2}, {t:"其他", s:0}] },
+        { cat: "工作年限", q: "6. 您在当前单位连续入职时长？", opts: [{t:"3 年以上", s:10}, {t:"1-3 年", s:5}, {t:"1 年以内", s:0}] },
+        { cat: "财务实力", q: "7. 您的个人税后月收入大概是？", opts: [{t:"2.5万元以上", s:12}, {t:"1.2w - 2.5w", s:8}, {t:"5000 - 1.2w", s:3}, {t:"5000 以下", s:-5}] },
+        { cat: "资金证明", q: "8. 您能否提供连续 6 个月的银行代发工资流水？", opts: [{t:"完全没问题", s:10}, {t:"能提供但不够稳定", s:3}, {t:"无法提供", s:-10}] },
+        { cat: "存款余额", q: "9. 您银行卡活期余额常年保持在多少？", opts: [{t:"10万元以上", s:10}, {t:"5w - 10w", s:6}, {t:"5w 以下", s:0}] },
+        { cat: "固定资产", q: "10. 您在本人名下是否有国内房产？", opts: [{t:"有 1 套或更多", s:10}, {t:"仅父母名下有", s:3}, {t:"目前租房", s:0}] },
+        { cat: "大额资产", q: "11. 您本人名下是否有私家车？", opts: [{t:"有（含贷款中）", s:5}, {t:"没有", s:0}] },
+        { cat: "社会关系", q: "12. 您的婚姻状态是？", opts: [{t:"已婚（含已婚育）", s:8}, {t:"单身", s:0}, {t:"离异/丧偶", s:0}] },
+        { cat: "国内约束", q: "13. 您的子女是否在国内？", opts: [{t:"是，子女在国内生活/读书", s:8}, {t:"没有子女", s:0}] },
+        { cat: "教育背景", q: "14. 您的最高学历是？", opts: [{t:"硕士/博士", s:8}, {t:"本科/大专", s:5}, {t:"高中及以下", s:0}] },
+        { cat: "户籍敏感", q: "15. 您的户籍所在地是否属于该国签证的高危地区？", opts: [{t:"不属于(常规地区)", s:5}, {t:"不确定", s:0}, {t:"属于(如特定福建/辽宁等领区)", s:-12}] },
+        { cat: "亲友状况", q: "16. 您在目标国家是否有直系亲属（如父母子女）？", opts: [{t:"没有", s:5}, {t:"有，且对方身份合法", s:0}, {t:"有，但身份不明确", s:-20}] },
+        { cat: "出行计划", q: "17. 您是否有明确的往返机票及酒店订单？", opts: [{t:"已准备好完善计划", s:8}, {t:"只有大致计划", s:2}] },
+        { cat: "同行人员", q: "18. 您此次是全家同行还是独自一人？", opts: [{t:"全家或多人同行", s:5}, {t:"独自一人前往", s:-2}] },
+        { cat: "语言能力", q: "19. 您的英语或目标国语言沟通能力？", opts: [{t:"沟通无障碍", s:5}, {t:"基本交流", s:2}, {t:"完全不会", s:0}] },
+        { cat: "材料准备", q: "20. 您是否能提供完整的公司营业执照副本加盖公章？", opts: [{t:"能提供", s:10}, {t:"只能提供在职证明", s:5}, {t:"无法提供", s:-5}] }
+    ];
+
+    function renderStep() {
+        const container = document.getElementById('main-content');
+        const progress = (currentStep / questions.length) * 100;
+        document.getElementById('p-bar').style.width = progress + '%';
+        document.getElementById('step-info').innerText = `已完成评估 ${currentStep} / ${questions.length}`;
+
+        if (currentStep >= questions.length) {
+            showLoading();
+            return;
+        }
+
+        const qData = questions[currentStep];
+        let html = `
+            <div class="q-category">${qData.cat}</div>
+            <div class="q-title">${qData.q}</div>
+        `;
+        
+        qData.opts.forEach(opt => {
+            html += `<button class="option-btn" onclick="handleSelect('${opt.t}', ${opt.s})">${opt.t}</button>`;
+        });
+        
+        container.innerHTML = html;
+    }
+
+    function handleSelect(val, s) {
+        currentScore += s;
+        if (currentStep === 0) selectedCountry = val;
+        currentStep++;
+        renderStep();
+    }
+
+    function showLoading() {
+        const container = document.getElementById('main-content');
+        container.innerHTML = `
+            <div class="loading-wrap">
+                <div class="loader"></div>
+                <h3>AI 正在检索${selectedCountry}领事馆库...</h3>
+                <p style="color: #666; font-size: 0.9rem;">正在评估回国约束力...<br>正在计算资金逻辑链...</p>
+            </div>
+        `;
+        setTimeout(showResult, 3000);
+    }
+
+    function showResult() {
+        const container = document.getElementById('main-content');
+        let finalScore = currentScore;
+        if (finalScore > 98) finalScore = 98;
+        if (finalScore < 8) finalScore = 8;
+
+        let color = "var(--success)";
+        let status = "极高";
+        let advice = `<strong>评估报告：</strong> 您的资质非常出色！办理【${selectedCountry}】签证通过率很高。`;
+        
+        if (finalScore < 60) {
+            color = "var(--danger)";
+            status = "高危";
+            advice = `<strong>预警：</strong> 您的资质在【${selectedCountry}】审核逻辑中存在严重缺陷。<strong>切勿尝试 DIY 递签</strong>，建议立即联系专家进行“材料漂白”和重构。`;
+        } else if (finalScore < 82) {
+            color = "var(--accent)";
+            status = "中等";
+            advice = `<strong>风险提示：</strong> 您处于【${selectedCountry}】审核的灰色地带。建议配置拒签险预防损失，并由老师协助规避潜在拒签坑位。`;
+        }
+
+        container.innerHTML = `
+            <div class="score-circle" style="color: ${color}; border-color: ${color}">
+                <div class="score-val">${finalScore}%</div>
+                <div style="font-size: 0.9rem">过签概率：${status}</div>
+            </div>
+            
+            <div class="advice-card">${advice}</div>
+
+            <a href="https://my.feishu.cn/wiki/EH3zwI0cBil9uak2dqgcPIpVnOh?from=from_copylink" target="_blank" class="cta-insurance">点击购买【拒签保险】保驾护航</a>
+
+            <div class="qr-section">
+                <div class="qr-tag">扫码添加专家老师</div>
+                <img src="0301e65a6153f001d05a24525c70da61.png" alt="二维码" onerror="this.src='https://via.placeholder.com/200x200?text=二维码加载失败'">
+                <div style="font-size: 0.8rem; color: #666;">人工复核材料 提高通过率</div>
+            </div>
+            
+            <button onclick="location.reload()" style="margin-top:20px; border:none; background:none; color:var(--primary); cursor:pointer; width:100%; text-align:center;">重新测评</button>
+        `;
+    }
+
+    // 初始化
+    renderStep();
+</script>
+
+</body>
+</html>
