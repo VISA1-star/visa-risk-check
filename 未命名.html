@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>签证拒签概率检测工具</title>
+    <style>
+        /* 基础样式，让页面更美观 */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: "Microsoft YaHei", sans-serif;
+        }
+        body {
+            background-color: #f5f7fa;
+            padding: 20px;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 30px;
+        }
+        .form-group {
+            margin-bottom: 20px;
+        }
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #555;
+        }
+        select, input[type="checkbox"] {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 16px;
+        }
+        .checkbox-group {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+        .checkbox-group input {
+            width: auto;
+        }
+        button {
+            width: 100%;
+            padding: 12px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            font-size: 18px;
+            cursor: pointer;
+            margin-top: 10px;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        #result {
+            margin-top: 30px;
+            padding: 20px;
+            border-radius: 5px;
+            display: none; /* 初始隐藏结果 */
+        }
+        .low-risk {
+            background-color: #d4edda;
+            border: 1px solid #c3e6cb;
+        }
+        .medium-risk {
+            background-color: #fff3cd;
+            border: 1px solid #ffeeba;
+        }
+        .high-risk {
+            background-color: #f8d7da;
+            border: 1px solid #f5c6cb;
+        }
+        .result-item {
+            margin-bottom: 10px;
+            font-size: 16px;
+        }
+        .tips {
+            margin-top: 15px;
+            padding: 15px;
+            background-color: #e9f7fe;
+            border-radius: 5px;
+        }
+        .promotion {
+            margin-top: 20px;
+            padding: 20px;
+            background-color: #f9f2f4;
+            border-radius: 5px;
+            text-align: center;
+        }
+        .promotion a {
+            color: #e53e3e;
+            font-weight: 600;
+            text-decoration: none;
+            font-size: 17px;
+            /* 新增：确保链接可点击的样式 */
+            display: inline-block;
+            padding: 8px 16px;
+            background-color: #fff;
+            border-radius: 4px;
+            border: 1px solid #e53e3e;
+            margin: 5px 0;
+        }
+        .promotion a:hover {
+            text-decoration: underline;
+            background-color: #fef2f2;
+        }
+        .qrcode {
+            margin: 20px auto;
+            text-align: center;
+        }
+        .qrcode img {
+            max-width: 300px;
+            height: auto;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>签证拒签概率检测工具</h1>
+        
+        <!-- 用户输入表单 -->
+        <div id="form-section">
+            <div class="form-group">
+                <label>申请签证类型</label>
+                <select id="visa-type">
+                    <option value="tourist">旅游签</option>
+                    <option value="business">商务签</option>
+                    <option value="study">留学签</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>申请国家</label>
+                <select id="country">
+                    <option value="usa">美国</option>
+                    <option value="schengen">申根区</option>
+                    <option value="uk">英国</option>
+                    <option value="australia">澳洲</option> <!-- 新增：澳洲选项 -->
+                    <option value="other">其他国家</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>个人情况（请勾选符合的选项）</label>
+                <div class="checkbox-group">
+                    <input type="checkbox" id="has-rejection">
+                    <label for="has-rejection">有任何国家拒签记录</label>
+                </div>
+                <div class="checkbox-group">
+                    <input type="checkbox" id="insufficient-assets">
+                    <label for="insufficient-assets">资产证明不足（无足够流水/存款）</label>
+                </div>
+                <div class="checkbox-group">
+                    <input type="checkbox" id="no-travel-plan">
+                    <label for="no-travel-plan">无清晰行程单/邀请函</label>
+                </div>
+                <div class="checkbox-group">
+                    <input type="checkbox" id="sensitive-hukou">
+                    <label for="sensitive-hukou">户籍为敏感地区</label>
+                </div>
+                <div class="checkbox-group">
+                    <input type="checkbox" id="stable-job" checked>
+                    <label for="stable-job">有稳定工作+收入证明</label>
+                </div>
+                <div class="checkbox-group">
+                    <input type="checkbox" id="rich-travel">
+                    <label for="rich-travel">有多次发达国家出境记录</label>
+                </div>
+            </div>
+            <button onclick="calculateRisk()">开始检测拒签概率</button>
+        </div>
+
+        <!-- 结果展示区域 -->
+        <div id="result">
+            <div class="result-item"><strong>拒签风险分值：</strong><span id="score"></span>（满分100）</div>
+            <div class="result-item"><strong>拒签概率：</strong><span id="prob"></span></div>
+            <div class="result-item"><strong>风险等级：</strong><span id="level"></span></div>
+            <div class="result-item"><strong>高风险因素：</strong><span id="risk-factors"></span></div>
+            <div class="result-item"><strong>改进建议：</strong><ul id="suggestions"></ul></div>
+            
+            <!-- 推广区域：拒签险+二维码 -->
+            <div class="promotion">
+                <h3 style="color: #e53e3e; margin-bottom: 10px;">💡 降低风险推荐</h3>
+                <p>为减少拒签损失，建议购买拒签险：</p>
+                <!-- 修复：确保链接格式正确，新增rel属性避免安全限制 -->
+                <a href="https://my.feishu.cn/wiki/EH3zwI0cBil9uak2dqgcPIpVnOh?from=from_copylink" 
+                   target="_blank" 
+                   rel="noopener noreferrer">点击购买拒签险</a>
+                <p style="margin-top: 15px;">添加签证老师代办签证，大幅提高通过率：</p>
+                <div class="qrcode">
+                    <img src="https://p26-flow-imagex-download-sign.byteimg.com/tos-cn-i-a9rns2rl98/43c753ff848a415993beeda7279c8674.png~tplv-a9rns2rl98-24:720:720.png?lk3s=8e244e95&rcl=20260222194419DF0085AD62636896C463&rrcfp=8a172a1a&x-expires=1772365459&x-signature=6pV1NewCGFi5EzmPcKfyMGwY6L8%3D" alt="签证老师微信二维码">
+                    <p style="margin-top: 10px; color: #666;">扫码添加签证研究院老师</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 核心计算函数：和之前Python逻辑完全一致
+        function calculateRisk() {
+            // 1. 获取用户输入的信息
+            const userInfo = {
+                has_rejection_record: document.getElementById("has-rejection").checked,
+                insufficient_assets: document.getElementById("insufficient-assets").checked,
+                no_travel_plan: document.getElementById("no-travel-plan").checked,
+                sensitive_hukou: document.getElementById("sensitive-hukou").checked,
+                stable_job: document.getElementById("stable-job").checked,
+                rich_travel_record: document.getElementById("rich-travel").checked
+            };
+
+            // 2. 计算分值、风险因素、建议
+            let score = 0;
+            let highRiskFactors = [];
+            let suggestions = [];
+
+            // 加分项（增加拒签风险）
+            if (userInfo.has_rejection_record) {
+                score += 25;
+                highRiskFactors.push("有境外拒签记录");
+                suggestions.push("补充说明上次拒签的原因，并完善相关材料");
+            }
+            if (userInfo.insufficient_assets) {
+                score += 20;
+                highRiskFactors.push("资产证明不足");
+                suggestions.push("补充近6个月的银行流水、存款证明或房产/车产证明");
+            }
+            if (userInfo.no_travel_plan) {
+                score += 15;
+                highRiskFactors.push("无明确的出行计划/行程单");
+                suggestions.push("制作详细的行程单，包含酒店预订、机票预订、景点规划等");
+            }
+            if (userInfo.sensitive_hukou) {
+                score += 10;
+                highRiskFactors.push("户籍为敏感地区");
+                suggestions.push("补充更多证明国内约束力的材料（如工作证明、亲属关系证明）");
+            }
+
+            // 减分项（降低拒签风险）
+            if (userInfo.stable_job) {
+                score -= 15;
+                score = Math.max(score, 0); // 确保分值不低于0
+            }
+            if (userInfo.rich_travel_record) {
+                score -= 20;
+                score = Math.max(score, 0);
+            }
+
+            // 3. 确定风险等级和拒签概率
+            let riskLevel, rejectionProb;
+            if (score <= 20) {
+                riskLevel = "低风险";
+                rejectionProb = `${score}%（拒签概率＜20%）`;
+                document.getElementById("result").className = "low-risk";
+            } else if (score <= 50) {
+                riskLevel = "中风险";
+                rejectionProb = `${score}%（拒签概率20%-50%）`;
+                document.getElementById("result").className = "medium-risk";
+            } else {
+                riskLevel = "高风险";
+                rejectionProb = `${score}%（拒签概率＞50%）`;
+                document.getElementById("result").className = "high-risk";
+            }
+
+            // 4. 无高风险因素时的默认建议
+            if (suggestions.length === 0) {
+                suggestions.push("你的材料整体符合要求，保持现有材料即可提交申请");
+            }
+
+            // 5. 填充结果到页面
+            document.getElementById("score").textContent = score;
+            document.getElementById("prob").textContent = rejectionProb;
+            document.getElementById("level").textContent = riskLevel;
+            document.getElementById("risk-factors").textContent = highRiskFactors.length > 0 ? highRiskFactors.join("、") : "无";
+            
+            // 填充建议列表
+            const suggestionsList = document.getElementById("suggestions");
+            suggestionsList.innerHTML = ""; // 清空原有内容
+            suggestions.forEach(tip => {
+                const li = document.createElement("li");
+                li.textContent = tip;
+                suggestionsList.appendChild(li);
+            });
+
+            // 显示结果区域
+            document.getElementById("result").style.display = "block";
+            // 滚动到结果区域
+            document.getElementById("result").scrollIntoView({ behavior: "smooth" });
+        }
+    </script>
+</body>
+</html>
