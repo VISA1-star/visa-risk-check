@@ -258,6 +258,86 @@ body{background:var(--bg);color:var(--ink);font-family:'Noto Sans SC',sans-serif
   .rb-score{font-size:72px}
   .cta-row{flex-direction:column}
 }
+
+/* ─── LOADING PAGE ─── */
+.ld-wrap{
+  min-height:100vh;display:flex;align-items:center;justify-content:center;
+  background:var(--bg);padding:24px;
+  position:relative;overflow:hidden;
+}
+.ld-wrap::before{
+  content:'';position:absolute;inset:0;
+  background:
+    radial-gradient(ellipse 60% 50% at 20% 30%,rgba(192,57,43,.06),transparent 55%),
+    radial-gradient(ellipse 50% 60% at 80% 70%,rgba(183,121,31,.05),transparent 50%);
+}
+.ld-card{
+  position:relative;z-index:1;
+  background:#fff;border:1px solid var(--border);border-radius:24px;
+  padding:44px 36px 40px;
+  max-width:400px;width:100%;
+  text-align:center;
+  box-shadow:0 12px 48px rgba(26,22,20,.1);
+  animation:fadeUp .5s cubic-bezier(.16,1,.3,1) both;
+}
+/* floating orbs */
+.ld-orbs{position:absolute;inset:0;pointer-events:none;overflow:hidden;border-radius:24px}
+.ld-orb{position:absolute;border-radius:50%;filter:blur(40px);opacity:.5}
+.ld-orb1{width:120px;height:120px;background:rgba(192,57,43,.08);top:-20px;right:-20px;animation:orbFloat 4s ease-in-out infinite}
+.ld-orb2{width:80px;height:80px;background:rgba(183,121,31,.07);bottom:20px;left:-10px;animation:orbFloat 5s ease-in-out infinite reverse}
+.ld-orb3{width:60px;height:60px;background:rgba(30,107,71,.06);bottom:-10px;right:40px;animation:orbFloat 3.5s ease-in-out infinite 1s}
+@keyframes orbFloat{0%,100%{transform:translateY(0)}50%{transform:translateY(-12px)}}
+
+.ld-icon-ring{
+  width:80px;height:80px;border-radius:50%;
+  background:linear-gradient(135deg,var(--red-light),#fff8f7);
+  border:1.5px solid rgba(192,57,43,.15);
+  display:flex;align-items:center;justify-content:center;
+  margin:0 auto 28px;
+  box-shadow:0 4px 20px rgba(192,57,43,.12);
+}
+.ld-icon-inner{display:flex;align-items:center;justify-content:center}
+
+.ld-title{
+  font-family:'Noto Serif SC',serif;
+  font-size:20px;font-weight:700;color:var(--ink);
+  margin-bottom:28px;letter-spacing:.3px;
+}
+
+/* steps */
+.ld-steps{display:flex;flex-direction:column;gap:10px;margin-bottom:28px;text-align:left}
+.ld-step{
+  display:flex;align-items:center;gap:10px;
+  font-size:13px;color:#b0a89e;
+  padding:10px 14px;border-radius:10px;
+  border:1px solid transparent;
+  transition:all .4s ease;
+}
+.ld-step.active{
+  color:var(--ink2);
+  background:var(--red-light);
+  border-color:rgba(192,57,43,.15);
+}
+.ld-step.done{color:#1e6b47;background:#eef9f3;border-color:rgba(30,107,71,.12)}
+.ld-step-dot{
+  width:8px;height:8px;border-radius:50%;flex-shrink:0;
+  background:#ddd5cc;transition:background .4s;
+}
+.ld-step.active .ld-step-dot{background:var(--red);box-shadow:0 0 0 3px rgba(192,57,43,.2);animation:dotPulse 1s ease-in-out infinite}
+.ld-step.done .ld-step-dot{background:#1e6b47;box-shadow:none;animation:none}
+@keyframes dotPulse{0%,100%{box-shadow:0 0 0 3px rgba(192,57,43,.2)}50%{box-shadow:0 0 0 6px rgba(192,57,43,.08)}}
+
+/* progress bar */
+.ld-bar-wrap{display:flex;align-items:center;gap:12px;margin-bottom:20px}
+.ld-bar-bg{flex:1;background:#f0ebe3;height:6px;border-radius:3px;overflow:hidden}
+.ld-bar-fg{height:100%;background:linear-gradient(90deg,var(--red),#e04535);border-radius:3px;width:0%;transition:width .35s ease}
+.ld-bar-label{font-size:12px;font-weight:700;color:var(--red);width:32px;text-align:right;flex-shrink:0}
+
+.ld-tip{
+  font-size:11px;color:var(--muted);letter-spacing:.5px;
+  padding-top:16px;border-top:1px solid var(--border);
+}
+
 </style>
 </head>
 <body>
@@ -516,7 +596,54 @@ function pick_ans(idx){
     if(i===idx)b.classList.add("chosen");
     b.style.pointerEvents="none";
   });
-  setTimeout(function(){if(curQ<29){curQ++;render_q();}else show_result();},400);
+  setTimeout(function(){if(curQ<29){curQ++;render_q();}else show_loading();},200);
+}
+
+
+function show_loading(){
+  show_page("pg-loading");
+  // step indices timing
+  var steps=[0,500,1000,1500,1950];
+  var pcts=[0,22,45,68,88,100];
+  var pctTimes=[0,400,800,1200,1600,2000];
+
+  // animate steps
+  steps.forEach(function(delay,i){
+    setTimeout(function(){
+      // mark previous done
+      if(i>0){
+        var prev=document.getElementById("ld-s"+i);
+        if(prev){prev.classList.remove("active");prev.classList.add("done");}
+      }
+      var cur=document.getElementById("ld-s"+(i+1));
+      if(cur){cur.classList.remove("done");cur.classList.add("active");}
+    },delay);
+  });
+
+  // animate progress bar
+  pctTimes.forEach(function(delay,i){
+    setTimeout(function(){
+      var bar=document.getElementById("ld-bar");
+      var lbl=document.getElementById("ld-pct");
+      if(bar) bar.style.width=pcts[i]+"%";
+      if(lbl) lbl.textContent=pcts[i]+"%";
+    },delay);
+  });
+
+  // mark last step done at end
+  setTimeout(function(){
+    var last=document.getElementById("ld-s5");
+    if(last){last.classList.remove("active");last.classList.add("done");}
+    var bar=document.getElementById("ld-bar");
+    var lbl=document.getElementById("ld-pct");
+    if(bar) bar.style.width="100%";
+    if(lbl) lbl.textContent="100%";
+  },2300);
+
+  // go to result after 2.6s
+  setTimeout(function(){
+    show_result();
+  },2600);
 }
 
 function show_result(){
@@ -568,7 +695,7 @@ function show_result(){
 }
 
 function show_page(id){
-  ["pg-home","pg-quiz","pg-result"].forEach(function(s){
+  ["pg-home","pg-quiz","pg-result","pg-loading"].forEach(function(s){
     var el=document.getElementById(s);
     el.style.display="none";
   });
@@ -586,5 +713,56 @@ function restart(){
   show_page("pg-home");
 }
 </script>
+
+<!-- ═══ LOADING ═══ -->
+<div id="pg-loading" style="display:none">
+  <div class="ld-wrap">
+    <div class="ld-card">
+      <div class="ld-orbs">
+        <div class="ld-orb ld-orb1"></div>
+        <div class="ld-orb ld-orb2"></div>
+        <div class="ld-orb ld-orb3"></div>
+      </div>
+      <div class="ld-icon-ring">
+        <div class="ld-icon-inner">
+          <svg width="36" height="36" viewBox="0 0 36 36" fill="none">
+            <path d="M18 4C10.268 4 4 10.268 4 18s6.268 14 14 14 14-6.268 14-14S25.732 4 18 4z" stroke="rgba(192,57,43,0.15)" stroke-width="2.5"/>
+            <path d="M18 4C10.268 4 4 10.268 4 18" stroke="#c0392b" stroke-width="2.5" stroke-linecap="round">
+              <animateTransform attributeName="transform" type="rotate" from="0 18 18" to="360 18 18" dur="0.9s" repeatCount="indefinite"/>
+            </path>
+            <circle cx="18" cy="18" r="6" fill="rgba(192,57,43,0.12)"/>
+            <circle cx="18" cy="18" r="3" fill="#c0392b"/>
+          </svg>
+        </div>
+      </div>
+      <div class="ld-title">综合评估报告生成中</div>
+      <div class="ld-steps" id="ld-steps">
+        <div class="ld-step active" id="ld-s1">
+          <span class="ld-step-dot"></span>正在分析您的财务状况…
+        </div>
+        <div class="ld-step" id="ld-s2">
+          <span class="ld-step-dot"></span>交叉验证签证历史数据…
+        </div>
+        <div class="ld-step" id="ld-s3">
+          <span class="ld-step-dot"></span>匹配目标国审核标准…
+        </div>
+        <div class="ld-step" id="ld-s4">
+          <span class="ld-step-dot"></span>计算各维度权重评分…
+        </div>
+        <div class="ld-step" id="ld-s5">
+          <span class="ld-step-dot"></span>生成个性化提升方案…
+        </div>
+      </div>
+      <div class="ld-bar-wrap">
+        <div class="ld-bar-bg">
+          <div class="ld-bar-fg" id="ld-bar"></div>
+        </div>
+        <div class="ld-bar-label" id="ld-pct">0%</div>
+      </div>
+      <div class="ld-tip">基于真实签证审核维度 · 专业评估模型</div>
+    </div>
+  </div>
+</div>
+
 </body>
 </html>
